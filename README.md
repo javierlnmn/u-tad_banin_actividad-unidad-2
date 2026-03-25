@@ -24,22 +24,22 @@ Este proyecto implementa un pipeline de datos para procesar, limpiar y analizar 
 
 ## Metodología de Trabajo
 
-El procesamiento se realiza a través de la clase `DataExtractor`, siguiendo un flujo de tres etapas:
+El procesamiento se realiza a través de la clase `DataExtractor`, siguiendo el siguiente flujo:
 
-### 1. Extracción (ETL)
-Se utiliza un patrón **Loader** desacoplado para cargar los datos. El sistema está preparado para manejar archivos grandes mediante el uso de `pandas` y está diseñado para soportar `chunksize` en futuras iteraciones para optimizar el uso de memoria RAM.
+### 1. Carga de Datos
+Se utiliza un patrón **Loader** desacoplado para cargar los datos usando *pandas*.
 
-### 2. Limpieza y Normalización
-La limpieza de texto es fundamental para eliminar el "ruido" de Twitter. El proceso incluye:
-* **Case Folding:** Conversión a minúsculas para uniformidad.
-* **Sanitización:** Eliminación de URLs (`http/https`) y espacios en blanco extra.
-* **Integridad de Hashtags:** Se limpian caracteres especiales pero se preserva el símbolo `#` para permitir una extracción precisa de etiquetas.
+### 2. Extracción de Hashtags
+Se utiliza una expresión regular para extraer los hashtags del texto.
 
-### 3. Análisis de Hashtags (Explode Strategy)
-Para analizar qué temas son tendencia, el script realiza los siguientes pasos:
-* **Regex Extraction:** Identificación de todos los `#tags` dentro del texto.
-* **Data Explosion:** Se utiliza el método `.explode()` de Pandas. Si un tweet tiene 3 hashtags, se convierte en 3 filas independientes. Esto permite calcular frecuencias reales sin sesgos.
-* **Agregación:** Cálculo de frecuencia global, actividad por usuario y evolución diaria.
+### 3. Limpieza y Normalización
+Se limpia el texto de manera general: mayúsculas a minúsculas, eliminación de URLs, eliminación de caracteres especiales, eliminación de espacios redundantes.
+
+### 4. Extracción de Palabras Clave
+Se utiliza una expresión regular para extraer las palabras clave del texto.
+
+### 5. Análisis de Palabras
+Se analizan tanto los hashtags como las palabras clave para obtener un análisis más completo, generando un wordcloud.
 
 ## Ejecución con Poetry
 
