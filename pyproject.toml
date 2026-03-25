@@ -8,7 +8,9 @@ requires-python = ">=3.14"
 
 dependencies = [
     "ruff (>=0.15.7,<0.16.0)",
-    "kagglehub[pandas-datasets] (>=1.0.0,<2.0.0)"
+    "kagglehub[pandas-datasets] (>=1.0.0,<2.0.0)",
+    "matplotlib (>=3.8.0,<4.0.0)",
+    "wordcloud (>=1.9.3,<2.0.0)",
 ]
 
 [tool.poetry]
