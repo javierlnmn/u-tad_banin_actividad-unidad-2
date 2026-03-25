@@ -1,7 +1,7 @@
-import pandas as pd
-
 from data_loaders.base import DataLoader
 from data_loaders.kaggle import KaggleLoader
+import re
+from pandas import DataFrame
 
 
 class DataExtractor:
@@ -13,9 +13,27 @@ class DataExtractor:
         chunksize: Tamaño de los chunks para el procesamiento.
         loader: Cargador de datos para diferentes formatos.
         """
-        self.loader = loader
-        self.data = None
+        self.loader: DataLoader = loader
+        self.data: DataFrame = None
         self.chunksize = chunksize
+
+    def process_data(self):
+        """
+        Método principal para procesar los datos.
+            1. Carga los datos del archivo de origen.
+            2. Extrae los hashtags del texto.
+            3. Limpia el texto.
+            4. Encuentra palabras clave en el texto.
+        """
+        self.data = self.loader.load()
+
+        hashtags_from_text = self.data["text"].apply(self.extract_hashtags)
+        # Sobreescribimos la columna hashtags con la lista de hashtags de cada texto
+        self.data["hashtags"] = hashtags_from_text
+
+        self.data["text"] = self.data["text"].apply(self.clean_text)
+
+        keywords_from_text = self.data["text"].apply(self.extract_keywords)
 
     def load_data(self):
         """
@@ -27,25 +45,36 @@ class DataExtractor:
         self.data = self.loader.load()
         return self.data
 
-    # def clean_text(self, text: str) -> str:
-    #     """
-    #     Limpia y normaliza el texto.
-    #     Pasos sugeridos:
-    #     - Convertir a minúsculas.
-    #     - Eliminar o extraer URLs.
-    #     - Eliminar caracteres especiales (OJO! necesitamos hashtags) y espacios redundantes.
-    #     Devuelve:
-    #     El texto limpio.
-    #     """
-    #     return text
+    def clean_text(self, text: str) -> str:
+        """
+        Limpia y normaliza el texto.
+        Pasos sugeridos:
+            - Convertir a minúsculas.
+            - Eliminar URLs.
+            - Eliminar caracteres especiales.
+            - Eliminar espacios redundantes.
+        Devuelve:
+        El texto limpio.
+        """
+        text = text.lower()
+        text = re.sub(r"\s+", " ", text)
+        text = re.sub(r"https?:\/\/.*?[\s+]", "", text)
+        text = re.sub(
+            r"[\U0001F300-\U0001F5FF\U0001F600-\U0001F64F\U0001F680-\U0001F6FF\U0001F900-\U0001F9FF\U0001FA70-\U0001FAFF\u2600-\u27BF]+",
+            "",
+            text,
+        )
+        text = re.sub(r"[^a-z0-9\s]", "", text)
+        return text
 
-    # def extract_hashtags(self, text: str) -> list:
-    #     """
-    #     Extrae y devuelve una lista de hashtags presentes en el texto.
-    #     Implementación sugerida:
-    #     - Utilizar expresiones regulares para encontrar palabras que comiencen con '#' .
-    #     """
-    #     return hashtags
+    def extract_hashtags(self, text: str) -> list:
+        """
+        Extrae y devuelve una lista de hashtags presentes en el texto.
+        Implementación sugerida:
+            - Utilizar expresiones regulares para encontrar palabras que comiencen con '#' .
+        """
+        hashtags = re.findall(r"#(\w+)", text)
+        return hashtags
 
     # def analytics_hashtags_extended(self) -> dict:
     #     """
@@ -96,6 +125,6 @@ if __name__ == "__main__":
         dataset_name="kaushiksuresh147/bitcoin-tweets",
         file_path="Bitcoin_tweets_dataset_2.csv",
     )
+
     extractor = DataExtractor(loader=loader)
-    extractor.load_data()
-    print(extractor.data)
+    extractor.process_data()
