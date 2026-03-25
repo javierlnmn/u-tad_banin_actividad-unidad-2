@@ -24,22 +24,22 @@ Este proyecto implementa un pipeline de datos para procesar, limpiar y analizar 
 
 ## Metodología de Trabajo
 
-El procesamiento se realiza a través de la clase `DataExtractor`, siguiendo el siguiente flujo:
+El flujo lo concentra la clase `DataExtractor`. El punto de entrada es `generate_hashtag_wordcloud()`, que por dentro se apoya en `analytics_hashtags_extended()`:
 
-### 1. Carga de Datos
-Se utiliza un patrón **Loader** desacoplado para cargar los datos usando *pandas*.
+### 1. Carga de datos
+Patrón **Loader** (p. ej. `KaggleLoader`) y lectura con *pandas*.
 
-### 2. Extracción de Hashtags
-Se utiliza una expresión regular para extraer los hashtags del texto.
+### 2. Limpieza del texto
+`clean_text`: minúsculas, URLs fuera, emojis y ruido fuera, espacios normalizados. **No se elimina el carácter `#`**, para poder localizar hashtags en el texto ya normalizado.
 
-### 3. Limpieza y Normalización
-Se limpia el texto de manera general: mayúsculas a minúsculas, eliminación de URLs, eliminación de caracteres especiales, eliminación de espacios redundantes.
+### 3. Extracción de hashtags
+Expresión regular (`#` + palabra) sobre el texto limpio; una lista de hashtags por fila.
 
-### 4. Extracción de Palabras Clave
-Se utiliza una expresión regular para extraer las palabras clave del texto.
+### 4. Agregación y métricas
+Las listas se *explotan* en filas; se calculan frecuencias globales, por usuario (`user_name`) y por día (`date`).
 
-### 5. Análisis de Palabras
-Se analizan tanto los hashtags como las palabras clave para obtener un análisis más completo, generando un wordcloud.
+### 5. Visualización
+**Wordcloud** a partir de las frecuencias globales (`wordcloud` + matplotlib).
 
 ## Ejecución con Poetry
 
@@ -49,3 +49,18 @@ Este proyecto utiliza **Poetry** para garantizar que el entorno sea reproducible
 Si acabas de clonar el repo, instala las dependencias:
 ```bash
 poetry install
+```
+
+Para ejecutar el proyecto:
+
+```bash
+poetry run python main.py
+```
+
+## Dashboard interactivo
+
+App **Streamlit** (`dashboard.py`) para ver el mismo análisis de forma interactiva: métricas, gráficos (Plotly), tablas y wordcloud. Tras instalar dependencias:
+
+```bash
+poetry run streamlit run dashboard.py
+```
