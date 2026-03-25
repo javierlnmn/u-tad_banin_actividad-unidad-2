@@ -12,17 +12,23 @@ from data_loaders.kaggle import KaggleLoader
 
 
 class DataExtractor:
-    def __init__(self, loader: DataLoader, chunksize: int = 10_000):
+    def __init__(
+        self,
+        loader: DataLoader,
+        chunksize: int = 10_000,
+        data: DataFrame | None = None,
+    ):
         """
         Inicializa el extractor con el archivo de origen.
         Parámetro:
         source_file: Ruta al archivo de datos (CSV o JSON).
         chunksize: Tamaño de los chunks para el procesamiento.
         loader: Cargador de datos para diferentes formatos.
+        data: Si se pasa, se usa ese DataFrame en lugar de volver a cargar desde loader.
         """
         self.loader: DataLoader = loader
-        self.data: DataFrame | None = loader.load()
         self.chunksize = chunksize
+        self.data: DataFrame | None = data if data is not None else loader.load()
 
     def load_data(self):
         """
