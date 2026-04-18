@@ -7,7 +7,7 @@ import streamlit as st
 from wordcloud import WordCloud
 
 from data_loaders.kaggle import KaggleLoader
-from main import DataExtractor
+from extractor import DataExtractor
 
 DATASET = "kaushiksuresh147/bitcoin-tweets"
 FILE_PATH = "Bitcoin_tweets_dataset_2.csv"
