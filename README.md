@@ -1,6 +1,6 @@
 # Bitcoin Tweets Analysis (Kaggle Dataset)
 
-Este proyecto implementa un pipeline de datos para procesar, limpiar y analizar tendencias en la conversación de Twitter sobre Bitcoin, utilizando el dataset masivo de Kaggle.
+Este proyecto implementa un pipeline de datos para procesar, limpiar y analizar tendencias en la conversación de Twitter sobre Bitcoin, utilizando el dataset de Kaggle [Bitcoin Tweets](https://www.kaggle.com/datasets/kaushiksuresh147/bitcoin-tweets).
 
 
 ## Fuente de Datos
@@ -24,7 +24,7 @@ Este proyecto implementa un pipeline de datos para procesar, limpiar y analizar 
 
 ## Metodología de Trabajo
 
-El flujo lo concentra la clase `DataExtractor`. El punto de entrada es `generate_hashtag_wordcloud()`, que por dentro se apoya en `analytics_hashtags_extended()`:
+El flujo lo concentra la clase `DataExtractor` (`extractor.py`). El punto de entrada es `generate_hashtag_wordcloud()`, que por dentro se apoya en `analytics_hashtags_extended()`:
 
 ### 1. Carga de datos
 Patrón **Loader** (p. ej. `KaggleLoader`) y lectura con *pandas*.
@@ -41,26 +41,56 @@ Las listas se *explotan* en filas; se calculan frecuencias globales, por usuario
 ### 5. Visualización
 **Wordcloud** a partir de las frecuencias globales (`wordcloud` + matplotlib).
 
-## Ejecución con Poetry
+## Entorno e instalación
 
-Este proyecto utiliza **Poetry** para garantizar que el entorno sea reproducible y que no haya conflictos de librerías.
+Desde la raíz del proyecto (recomendado: entorno virtual):
 
-### Configuración inicial
-Si acabas de clonar el repo, instala las dependencias:
 ```bash
-poetry install
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-Para ejecutar el proyecto:
+En Windows, activa el entorno con `.venv\Scripts\activate`.
+
+## Ejecución de la CLI
+
+La línea de comandos se define en `cli.py`. Por defecto se usa el loader **csv** y la ruta `data/Bitcoin_tweets_dataset_2.csv`.
 
 ```bash
-poetry run python main.py
+python main.py
+```
+
+Ayuda y opciones:
+
+```bash
+python main.py -h
+```
+
+| Opción | Descripción |
+|--------|-------------|
+| `--loader {csv,kaggle,json}` | Origen de datos. `json` no está implementado y termina con código de salida 2. |
+| `--csv-path RUTA` | CSV local (solo tiene efecto con `--loader csv`). |
+| `--kaggle-dataset SLUG` | Dataset en Kaggle, p. ej. `kaushiksuresh147/bitcoin-tweets` (con `--loader kaggle`). |
+| `--kaggle-file NOMBRE` | Fichero dentro del dataset (con `--loader kaggle`). |
+
+Ejemplos:
+
+```bash
+# CSV local explícito
+python main.py --loader csv --csv-path data/Bitcoin_tweets_dataset_2.csv
+
+# Descarga / carga vía Kaggle (requiere credenciales Kaggle configuradas)
+python main.py --loader kaggle
+
+# Dataset y fichero concretos en Kaggle
+python main.py --loader kaggle --kaggle-dataset kaushiksuresh147/bitcoin-tweets --kaggle-file Bitcoin_tweets_dataset_2.csv
 ```
 
 ## Dashboard interactivo
 
-App **Streamlit** (`dashboard.py`) para ver el mismo análisis de forma interactiva: métricas, gráficos (Plotly), tablas y wordcloud. Tras instalar dependencias:
+App **Streamlit** (`dashboard.py`) para ver el mismo análisis de forma interactiva: métricas, gráficos (Plotly), tablas y wordcloud. Con el entorno activado y las dependencias instaladas:
 
 ```bash
-poetry run streamlit run dashboard.py
+streamlit run dashboard.py
 ```
