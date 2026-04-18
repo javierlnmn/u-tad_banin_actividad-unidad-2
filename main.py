@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from cli import parse_cli_args
-from data_loaders.utils import build_data_loader
+from loaders.utils import build_data_loader
 from extractor import DataExtractor
 
 

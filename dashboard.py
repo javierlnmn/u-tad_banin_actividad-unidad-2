@@ -6,7 +6,7 @@ import plotly.express as px
 import streamlit as st
 from wordcloud import WordCloud
 
-from data_loaders.kaggle import KaggleLoader
+from loaders.kaggle import KaggleLoader
 from extractor import DataExtractor
 
 DATASET = "kaushiksuresh147/bitcoin-tweets"
@@ -84,7 +84,9 @@ def main() -> None:
     c3.metric("Hashtags distintos", f"{len(overall):,}")
     c4.metric("Apariciones (suma freq.)", f"{int(overall['frequency'].sum()):,}")
 
-    tab1, tab2, tab3, tab4 = st.tabs(["Ranking global", "Por usuario", "Por fecha", "Wordcloud"])
+    tab1, tab2, tab3, tab4 = st.tabs(
+        ["Ranking global", "Por usuario", "Por fecha", "Wordcloud"]
+    )
 
     top = overall.head(top_n).copy()
     with tab1:
@@ -112,7 +114,11 @@ def main() -> None:
         else:
             bu = by_user
             if hashtag_filter:
-                mask = bu["hashtag"].astype(str).str.contains(hashtag_filter, case=False, na=False)
+                mask = (
+                    bu["hashtag"]
+                    .astype(str)
+                    .str.contains(hashtag_filter, case=False, na=False)
+                )
                 bu = bu[mask]
             bu_show = bu.head(500)
             fig_u = px.scatter(
@@ -137,7 +143,11 @@ def main() -> None:
             top_tags = set(overall.head(min(8, len(overall)))["hashtag"].astype(str))
             bd_f = bd[bd["hashtag"].astype(str).isin(top_tags)]
             if hashtag_filter:
-                bd_f = bd_f[bd_f["hashtag"].astype(str).str.contains(hashtag_filter, case=False, na=False)]
+                bd_f = bd_f[
+                    bd_f["hashtag"]
+                    .astype(str)
+                    .str.contains(hashtag_filter, case=False, na=False)
+                ]
             if bd_f.empty:
                 st.info("Sin puntos tras el filtro; prueba otro hashtag o más filas.")
             else:
@@ -149,10 +159,14 @@ def main() -> None:
                     markers=False,
                     labels={"date": "Fecha", "frequency": "Frecuencia"},
                 )
-                fig_line.update_layout(height=480, legend=dict(orientation="h", yanchor="bottom", y=-0.4))
+                fig_line.update_layout(
+                    height=480, legend=dict(orientation="h", yanchor="bottom", y=-0.4)
+                )
                 st.plotly_chart(fig_line, use_container_width=True)
             st.dataframe(
-                bd.sort_values(["date", "frequency"], ascending=[True, False]).head(300),
+                bd.sort_values(["date", "frequency"], ascending=[True, False]).head(
+                    300
+                ),
                 use_container_width=True,
                 hide_index=True,
             )

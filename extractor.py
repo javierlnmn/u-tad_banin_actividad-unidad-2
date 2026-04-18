@@ -7,7 +7,7 @@ import pandas as pd
 from pandas import DataFrame
 from wordcloud import WordCloud
 
-from data_loaders.base import DataLoader
+from loaders.base import DataLoader
 
 
 class DataExtractor:

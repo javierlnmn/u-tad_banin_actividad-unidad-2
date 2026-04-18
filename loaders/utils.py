@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from data_loaders import CSVLoader, KaggleLoader
-from data_loaders.base import DataLoader
+from loaders import CSVLoader, KaggleLoader
+from loaders.base import DataLoader
 
 
 def build_data_loader(
