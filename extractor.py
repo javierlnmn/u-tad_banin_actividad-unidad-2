@@ -54,8 +54,7 @@ class DataExtractor:
         """
         if pd.isna(text):
             return ""
-        if not isinstance(text, str):
-            text = str(text)
+
         text = text.lower()
         text = re.sub(r"\s+", " ", text)
         text = re.sub(r"https?:\/\/\S+", "", text)
