@@ -73,6 +73,8 @@ python main.py -h
 | `--csv-path RUTA` | CSV local (solo tiene efecto con `--loader csv`). |
 | `--kaggle-dataset SLUG` | Dataset en Kaggle, p. ej. `kaushiksuresh147/bitcoin-tweets` (con `--loader kaggle`). |
 | `--kaggle-file NOMBRE` | Fichero dentro del dataset (con `--loader kaggle`). |
+| `--export` | Escribe `cleaned_dataset.csv` (dataset limpio) en `--output-dir`. |
+| `--output-dir` | Carpeta para `--export` (por defecto `output`). |
 
 Ejemplos:
 
@@ -85,6 +87,12 @@ python main.py --loader kaggle
 
 # Dataset y fichero concretos en Kaggle
 python main.py --loader kaggle --kaggle-dataset kaushiksuresh147/bitcoin-tweets --kaggle-file Bitcoin_tweets_dataset_2.csv
+
+# Mismo flujo con datos de Kaggle y exportación
+python main.py --loader kaggle --export
+
+# Exportar en otra carpeta
+python main.py --loader csv --export --output-dir mi_salida
 ```
 
 ## Dashboard interactivo

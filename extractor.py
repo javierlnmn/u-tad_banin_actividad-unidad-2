@@ -9,6 +9,8 @@ from wordcloud import WordCloud
 
 from loaders.base import DataLoader
 
+DEFAULT_WORDCLOUD_MAX_WORDS = 100
+
 
 class DataExtractor:
     def __init__(
@@ -87,6 +89,7 @@ class DataExtractor:
                 - Frecuencia total de cada hashtag (overall).
                 - Frecuencia de hashtags por usuario (by_user).
                 - Evolución de la frecuencia de hashtags por día (by_date).
+
         Retorna un diccionario con tres DataFrames, con claves:
             'overall': DataFrame con columnas ['hashtag', 'frequency'].
             'by_user': DataFrame con columnas ['user_name', 'hashtag', 'frequency'].
@@ -136,7 +139,7 @@ class DataExtractor:
     def generate_hashtag_wordcloud(
         self,
         overall_df: DataFrame | None = None,
-        max_words: int = 100,
+        max_words: int = DEFAULT_WORDCLOUD_MAX_WORDS,
         figsize: tuple[float, float] = (10, 6),
     ) -> None:
         """

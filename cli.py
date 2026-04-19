@@ -27,6 +27,16 @@ def build_argument_parser() -> argparse.ArgumentParser:
         default="Bitcoin_tweets_dataset_2.csv",
         help="Nombre del fichero dentro del dataset (solo con --loader kaggle).",
     )
+    parser.add_argument(
+        "--export",
+        action="store_true",
+        help="Guardar cleaned_dataset.csv en --output-dir.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default="output",
+        help="Carpeta de salida para --export (cleaned_dataset.csv).",
+    )
     return parser
 
 
