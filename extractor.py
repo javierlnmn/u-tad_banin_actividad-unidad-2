@@ -71,18 +71,24 @@ class DataExtractor:
         """
         Extrae y devuelve una lista de hashtags presentes en el texto.
         Implementación sugerida:
-            - Utilizar expresiones regulares para encontrar palabras que comiencen con '#' .
+            - Utilizar expresiones regulares para encontrar palabras que comiencen con
+            '#' .
         """
         return re.findall(r"#(\w+)", text.lower())
 
     def analytics_hashtags_extended(self) -> dict[str, DataFrame]:
         """
-        Realiza un análisis avanzado de hashtags sobre el conjunto de datos cargado (self.data).
+        Realiza un análisis avanzado de hashtags sobre el conjunto de datos cargado
+        (self.data).
         El método realiza los siguientes pasos:
-            1. Aplica la función clean_text a la columna 'text' para normalizar los datos.
-            2. Extrae los hashtags de cada texto usando extract_hashtags y los almacena en una nueva columna.
-            3. Convierte la columna 'date' a tipo datetime y extrae solo la fecha (sin la hora).
-            4. Explota la columna de hashtags para obtener una fila por cada hashtag, lo que facilita los cálculos de
+            1. Aplica la función clean_text a la columna 'text' para normalizar los
+            datos.
+            2. Extrae los hashtags de cada texto usando extract_hashtags y los almacena
+            en una nueva columna.
+            3. Convierte la columna 'date' a tipo datetime y extrae solo la fecha
+            (sin la hora).
+            4. Explota la columna de hashtags para obtener una fila por cada hashtag,
+            lo que facilita los cálculos de
             frecuencia
             5. Calcula tres análisis:
                 - Frecuencia total de cada hashtag (overall).
@@ -96,7 +102,7 @@ class DataExtractor:
         """
         if self.data is None:
             raise ValueError(
-                "No hay datos: usa load_data() antes o llama a generate_hashtag_wordcloud()."
+                "No hay datos: usa load_data() o agenerate_hashtag_wordcloud() antes."
             )
 
         df = self.data.copy()
@@ -143,18 +149,25 @@ class DataExtractor:
     ) -> None:
         """
         Genera y muestra una wordcloud basada en el análisis global de hashtags.
-        Este método utiliza el DataFrame 'overall' que contiene la frecuencia global de cada hashtag.
-        Si no se proporciona el DataFrame, se calcula llamando a analytics_hashtags_extended().
+        Este método utiliza el DataFrame 'overall' que contiene la frecuencia global de
+        cada hashtag.
+        Si no se proporciona el DataFrame, se calcula llamando a
+        analytics_hashtags_extended().
         Parámetros:
-            - overall_df (pd.DataFrame, opcional): DataFrame con columnas ['hashtags', 'frequency']. Si es None, se
+            - overall_df (pd.DataFrame, opcional): DataFrame con columnas
+            ['hashtags', 'frequency']. Si es None, se
             calcula.
-            - max_words (int, opcional): Número máximo de palabras a incluir en la wordcloud.
+            - max_words (int, opcional): Número máximo de palabras a incluir en la
+            wordcloud.
             - figsize (tuple, opcional): Tamaño de la figura a mostrar.
         Proceso:
-            1. Si overall_df es None, llamar a analytics_hashtags_extended y extraer la parte 'overall'.
-            2. Convertir el DataFrame a un diccionario donde las claves sean los hashtags y los valores sean las
+            1. Si overall_df es None, llamar a analytics_hashtags_extended y extraer la
+            parte 'overall'.
+            2. Convertir el DataFrame a un diccionario donde las claves sean los
+            hashtags y los valores sean las
             frecuencias.
-            3. Utilizar la clase WordCloud de la librería wordcloud para generar la nube de palabras.
+            3. Utilizar la clase WordCloud de la librería wordcloud para generar la
+            nube de palabras.
             4. Visualizar la wordcloud con matplotlib.
         """
 

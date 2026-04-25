@@ -1,7 +1,7 @@
-from loaders.base import DataLoader
-
 import kagglehub
 from kagglehub import KaggleDatasetAdapter
+
+from loaders.base import DataLoader
 
 
 class KaggleLoader(DataLoader):

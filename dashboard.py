@@ -6,8 +6,8 @@ import plotly.express as px
 import streamlit as st
 from wordcloud import WordCloud
 
-from loaders.kaggle import KaggleLoader
 from extractor import DataExtractor
+from loaders.kaggle import KaggleLoader
 
 DATASET = "kaushiksuresh147/bitcoin-tweets"
 FILE_PATH = "Bitcoin_tweets_dataset_2.csv"

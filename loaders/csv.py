@@ -1,6 +1,6 @@
-from loaders.base import DataLoader
-
 import pandas as pd
+
+from loaders.base import DataLoader
 
 
 class CSVLoader(DataLoader):
