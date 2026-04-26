@@ -8,9 +8,12 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Análisis de hashtags sobre tweets.")
     parser.add_argument(
         "--loader",
-        choices=("kaggle", "json", "csv"),
+        choices=("kaggle", "json", "csv", "rapidapi"),
         default="csv",
-        help="Origen de datos: csv (local), kaggle (remoto), json (no disponible).",
+        help=(
+            "Origen de datos: csv (local), kaggle (remoto), "
+            "rapidapi (Twitter), json (no disponible)."
+        ),
     )
     parser.add_argument(
         "--csv-path",
@@ -36,6 +39,13 @@ def build_argument_parser() -> argparse.ArgumentParser:
         "--output-dir",
         default="output",
         help="Carpeta de salida para --export (cleaned_dataset.csv).",
+    )
+    parser.add_argument(
+        "--rapidapi-tweet-count",
+        type=int,
+        default=300,
+        metavar="N",
+        help="Número de tweets a pedir con --loader rapidapi (mínimo 1).",
     )
     return parser
 
