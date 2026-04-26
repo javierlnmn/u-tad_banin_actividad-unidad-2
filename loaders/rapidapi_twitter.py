@@ -15,12 +15,14 @@ from loaders.base import DataLoader
 logger = logging.getLogger(__name__)
 
 DEFAULT_RAPIDAPI_HOST = "twitter-api45.p.rapidapi.com"
-DEFAULT_QUERY = "bitcoin prediction"
+DEFAULT_QUERY = "michael jackson film opinions"
 DEFAULT_SEARCH_TYPE = "Top"
 DEFAULT_ENDPOINT = "/search.php"
 DEFAULT_TWEET_COUNT = 300
 MAX_REQUEST_ROUNDS = 50
-DEFAULT_CACHE_FILE = Path(__file__).resolve().parent.parent / "data" / "rapidapi_tweets.csv"
+DEFAULT_CACHE_FILE = (
+    Path(__file__).resolve().parent.parent / "data" / "rapidapi_tweets.csv"
+)
 
 
 class RapidAPITwitterLoader(DataLoader):
