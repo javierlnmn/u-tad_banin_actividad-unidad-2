@@ -27,6 +27,7 @@ if __name__ == "__main__":
             kaggle_dataset=ns.kaggle_dataset,
             kaggle_file=ns.kaggle_file,
             rapidapi_tweet_count=max(1, ns.rapidapi_tweet_count),
+            rapidapi_use_file=ns.use_file,
         )
     except Exception as err:
         print(f"Error al cargar los datos: {err}", file=sys.stderr)

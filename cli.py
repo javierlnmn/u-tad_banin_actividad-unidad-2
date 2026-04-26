@@ -47,6 +47,14 @@ def build_argument_parser() -> argparse.ArgumentParser:
         metavar="N",
         help="Número de tweets a pedir con --loader rapidapi (mínimo 1).",
     )
+    parser.add_argument(
+        "--use-file",
+        action="store_true",
+        help=(
+            "Con --loader rapidapi, usa data/rapidapi_tweets.csv si existe en lugar "
+            "de llamar a la API."
+        ),
+    )
     return parser
 
 

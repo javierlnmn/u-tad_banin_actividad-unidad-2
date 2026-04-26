@@ -4,6 +4,7 @@ import http.client
 import json
 import logging
 import os
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
@@ -19,6 +20,7 @@ DEFAULT_SEARCH_TYPE = "Top"
 DEFAULT_ENDPOINT = "/search.php"
 DEFAULT_TWEET_COUNT = 300
 MAX_REQUEST_ROUNDS = 50
+DEFAULT_CACHE_FILE = Path(__file__).resolve().parent.parent / "data" / "rapidapi_tweets.csv"
 
 
 class RapidAPITwitterLoader(DataLoader):
@@ -26,14 +28,30 @@ class RapidAPITwitterLoader(DataLoader):
         self,
         timeout: int = 20,
         tweet_count: int = DEFAULT_TWEET_COUNT,
+        use_file: bool = False,
     ):
         if tweet_count < 1:
             raise ValueError("tweet_count debe ser >= 1.")
         self.host = os.getenv("RAPIDAPI_HOST") or DEFAULT_RAPIDAPI_HOST
         self.timeout = timeout
         self.tweet_count = tweet_count
+        self.use_file = use_file
+        self.cache_file = DEFAULT_CACHE_FILE
 
     def load(self) -> pd.DataFrame:
+        if self.use_file:
+            if not self.cache_file.exists():
+                raise FileNotFoundError(
+                    f"No existe el fichero local: {self.cache_file}. "
+                    "Ejecuta sin --use-file para generarlo."
+                )
+            logger.info(
+                "RapidAPI Twitter: cargando tweets desde fichero local %s.",
+                self.cache_file,
+            )
+            df = pd.read_csv(self.cache_file)
+            return df.head(self.tweet_count).copy()
+
         api_key = os.getenv("RAPIDAPI_KEY")
         if not api_key:
             raise ValueError("Falta RAPIDAPI_KEY en el entorno (.env).")
@@ -108,7 +126,13 @@ class RapidAPITwitterLoader(DataLoader):
         trimmed = raw_tweets[: self.tweet_count]
         rows = [self._normalize_tweet(t) for t in trimmed]
         logger.info("RapidAPI Twitter: DataFrame con %s filas.", len(rows))
-        return pd.DataFrame(rows)
+        df = pd.DataFrame(rows)
+
+        self.cache_file.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(self.cache_file, index=False)
+        logger.info("RapidAPI Twitter: fichero guardado en %s.", self.cache_file)
+
+        return df
 
     def _fetch_json(self, api_key: str, query_params: dict[str, str]) -> dict[str, Any]:
         query_string = urlencode(query_params, doseq=True)
