@@ -243,23 +243,12 @@ class DataExtractor:
             passes=passes,
         )
 
-        if show_visualization:
-            try:
-                import pyLDAvis
-                import pyLDAvis.gensim_models as gensimvis
-            except ImportError as exc:
-                raise ImportError(
-                    "pyLDAvis no esta instalado. Instala con: pip install pyLDAvis"
-                ) from exc
-
-            pyLDAvis.enable_notebook()
-            visualization = gensimvis.prepare(lda_model, corpus, dictionary)
-            pyLDAvis.display(visualization)
-
-        topics_raw = lda_model.show_topics(
-            num_topics=num_topics, num_words=10, formatted=False
-        )
-        return [[word for word, _ in topic_words] for _, topic_words in topics_raw]
+        return [
+            [word for word, _ in topic]
+            for idx, topic in lda_model.show_topics(
+                num_topics=num_topics, num_words=10, formatted=False
+            )
+        ]
 
     def analyze_sentiment(self, method: str = "textblob") -> pd.DataFrame:
         """
