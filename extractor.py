@@ -1,22 +1,28 @@
 from __future__ import annotations
 
+import math
 import re
 from typing import Literal
 
 import matplotlib.pyplot as plt
+import nltk
 import pandas as pd
 import spacy
 from gensim import corpora
 from gensim.models import LdaModel
 from gensim.utils import simple_preprocess
 from nltk.corpus import stopwords
+from nltk.tokenize import sent_tokenize, word_tokenize
 from pandas import DataFrame
-from spacytextblob.spacytextblob import SpacyTextBlob  # noqa: F401
+from textblob import TextBlob
 from wordcloud import WordCloud
 
 from loaders.base import DataLoader
 
 DEFAULT_WORDCLOUD_MAX_WORDS = 100
+
+nltk.download("stopwords")
+nltk.download("punkt_tab")
 
 
 class DataExtractor:
@@ -205,6 +211,26 @@ class DataExtractor:
         plt.show()
         plt.close()
 
+    def _remove_stopwords(self, text: str) -> str:
+        """
+        Elimina las stopwords de un texto.
+        """
+        stopwords_list = set(stopwords.words("english"))
+        return " ".join([word for word in text.split() if word not in stopwords_list])
+
+    def _check_clean_text(self) -> None:
+        """
+        Asegura que la columna 'clean_text' existe.
+        """
+        if self.data is None:
+            self.load_data()
+
+        if "clean_text" not in self.data.columns:
+            self.data["clean_text"] = self.data["text"].apply(self.clean_text)
+            self.data["clean_text"] = self.data["clean_text"].apply(
+                self._remove_stopwords
+            )
+
     def model_topics(
         self, num_topics: int = 5, passes: int = 10, show_visualization: bool = True
     ) -> list[list[str]]:
@@ -221,18 +247,9 @@ class DataExtractor:
         Devuelve:
         Lista de tópicos, por ejemplo: [['word1', 'word2', ...], ['word3', ...], ...]
         """
-        if self.data is None:
-            self.load_data()
+        self._check_clean_text()
 
         df = self.data.copy()
-        df["clean_text"] = df["text"].apply(self.clean_text)
-
-        stopwords_list = set(stopwords.words("english"))
-        df["clean_text"] = df["clean_text"].apply(
-            lambda x: " ".join(
-                [word for word in x.split() if word not in stopwords_list]
-            )
-        )
 
         df["tokens"] = df["clean_text"].apply(simple_preprocess, deacc=True)
 
@@ -267,47 +284,54 @@ class DataExtractor:
         Devuelve:
         DataFrame actualizado con las nuevas columnas de sentimiento.
         """
-        if self.data is None:
-            self.load_data()
+        self._check_clean_text()
 
         df = self.data.copy()
-        if "clean_text" not in df.columns:
-            df["clean_text"] = df["text"].apply(self.clean_text)
 
         if method == "spacy":
             out = self._analyze_sentiment_spacy(df)
         elif method == "textblob":
             out = self._analyze_sentiment_textblob(df)
         else:
-            raise ValueError(f"Método de sentimiento desconocido: {method!r}")
+            raise ValueError(
+                f"Método de análisis de sentimiento desconocido: {method!r}"
+            )
 
         self.data = out
         return out
 
     def _analyze_sentiment_textblob(self, df: pd.DataFrame) -> pd.DataFrame:
-        raise NotImplementedError(
-            "Sentimiento con TextBlob aún no implementado; usa method='spacy'."
+        df["sentiment_polarity"] = df["clean_text"].apply(
+            lambda t: float("nan") if t == "" else float(TextBlob(t).sentiment.polarity)
         )
+        df["sentiment_subjectivity"] = df["clean_text"].apply(
+            lambda t: (
+                float("nan") if t == "" else float(TextBlob(t).sentiment.subjectivity)
+            )
+        )
+        return df
 
     def _analyze_sentiment_spacy(self, df: pd.DataFrame) -> pd.DataFrame:
         nlp = spacy.load("en_core_web_sm")
         nlp.add_pipe("spacytextblob")
 
-        out = df.copy()
-        out["sentiment_polarity"] = out["clean_text"].apply(
-            lambda t: float("nan") if t == "" else float(nlp(str(t))._.blob.polarity)
+        doc = nlp(str(df["clean_text"]))
+        df["sentiment_polarity"] = df["clean_text"].apply(
+            lambda t: float("nan") if t == "" else float(doc._.blob.polarity)
         )
-        out["sentiment_subjectivity"] = out["clean_text"].apply(
-            lambda t: (
-                float("nan") if t == "" else float(nlp(str(t))._.blob.subjectivity)
-            )
+        df["sentiment_subjectivity"] = df["clean_text"].apply(
+            lambda t: float("nan") if t == "" else float(doc._.blob.subjectivity)
         )
-        out["sentiment_tokens_pos"] = out["clean_text"].apply(
-            lambda t: {} if t == "" else {tok.text: tok.pos_ for tok in nlp(str(t))}
+        df["sentiment_tokens_pos"] = df["clean_text"].apply(
+            lambda t: {} if t == "" else {tok.text: tok.pos_ for tok in doc}
         )
-        return out
+        return df
 
-    def parse_and_summarize(self, summary_ratio: float = 0.3) -> str:
+    def parse_and_summarize(
+        self,
+        summary_ratio: float = 0.3,
+        max_sentences: int | None = None,
+    ) -> str:
         """
         Realiza un análisis de parsing y genera un resumen extractivo del corpus.
         Pasos:
@@ -320,8 +344,50 @@ class DataExtractor:
         orden original.
         Parámetros:
         - summary_ratio: Proporción de oraciones a retener (ej. 0.3 para el 30%).
+        - max_sentences: Si no es None, no se incluyen más de tantas oraciones aunque
+          el ratio pida más (útil cuando el corpus tiene miles de oraciones).
         Devuelve:
         Un string con el resumen generado.
         """
-        # return summary
-        pass
+        self._check_clean_text()
+
+        concat_texts = "\n".join(self.data["clean_text"].tolist())
+        original_sentences = [
+            s.strip() for s in sent_tokenize(concat_texts) if s.strip()
+        ]
+
+        word_counts = {}
+
+        for sent in original_sentences:
+            for w in word_tokenize(sent):
+                word_counts[w] = word_counts.get(w, 0) + 1
+
+        max_freq = max(word_counts.values()) if word_counts else 1
+
+        sentence_scores = {}
+        for idx, sent in enumerate(original_sentences):
+            tokens = word_tokenize(sent)
+            score = 0
+            for w in tokens:
+                if w in word_counts:
+                    score += word_counts[w] / max_freq
+            sentence_scores[idx] = score
+
+        sorted_sentences = sorted(
+            sentence_scores.items(), key=lambda x: x[1], reverse=True
+        )
+
+        total_sentences = len(original_sentences)
+        top_n = math.ceil(total_sentences * summary_ratio)
+        if max_sentences is not None:
+            top_n = min(top_n, max_sentences)
+        top_n = min(top_n, total_sentences)
+        if top_n <= 0:
+            return ""
+
+        selected_idx = [idx for idx, score in sorted_sentences[:top_n]]
+        selected_idx.sort()
+        summary_sentences = [original_sentences[i] for i in selected_idx]
+
+        summary = " ".join(summary_sentences)
+        return summary
