@@ -1,108 +1,105 @@
-# Bitcoin Tweets Analysis (Kaggle Dataset)
+# Entrega 2 — Análisis de textos (tópicos, sentimiento, resumen)
 
-Este proyecto implementa un pipeline de datos para procesar, limpiar y analizar tendencias en la conversación de Twitter sobre Bitcoin, utilizando el dataset de Kaggle [Bitcoin Tweets](https://www.kaggle.com/datasets/kaushiksuresh147/bitcoin-tweets).
+Esta entrega amplía el proyecto con **minería de textos** sobre tweets obtenidos por **API (RapidAPI, Twitter/X)**, centrados en **opiniones sobre la película de Michael Jackson** (*Michael*, biopic). El objetivo es explorar qué temas aparecen, cómo se distribuye el sentimiento y generar un **resumen extractivo** del corpus.
 
-
-## Fuente de Datos
-* **Dataset:** [Bitcoin Tweets](https://www.kaggle.com/datasets/kaushiksuresh147/bitcoin-tweets) de Kaggle.
-* **Volumen:** ~170,000 registros.
-* **Campos**:
-  - `user_name`
-  - `user_location`
-  - `user_description`
-  - `user_created`
-  - `user_followers`
-  - `user_friends`
-  - `user_favourites`
-  - `user_verified`
-  - `date`
-  - `text`
-  - `hashtags`
-  - `source`
-  - `is_retweet`
+La primera entrega (Bitcoin / Kaggle, hashtags y wordcloud) sigue documentada en [`README_ENTREGA_1.md`](README_ENTREGA_1.md).
 
 
-## Metodología de Trabajo
+## Fuente de datos
 
-El flujo lo concentra la clase `DataExtractor` (`extractor.py`). El punto de entrada es `generate_hashtag_wordcloud()`, que por dentro se apoya en `analytics_hashtags_extended()`:
+* **API:** [RapidAPI](https://rapidapi.com) — host por defecto `twitter-api45.p.rapidapi.com` (ver `loaders/rapidapi_twitter.py`).
+* **Consulta por defecto:** `michael jackson film opinions` (configurable en `DEFAULT_QUERY` del loader).
+* **Caché local:** los tweets se guardan en **`data/rapidapi_tweets.csv`** tras una descarga correcta (columnas normalizadas: `username`, `text`, `date`).
+* **Credenciales:** variable de entorno **`RAPIDAPI_KEY`** en `.env` cuando se llama a la API (no hace falta si solo se usa un CSV ya generado con `--use-file`).
 
-### 1. Carga de datos
-Patrón **Loader** (p. ej. `KaggleLoader`) y lectura con *pandas*.
+El corpus mezcla **inglés y español**; el extractor puede aplicar **stopwords en ambos idiomas** (NLTK) al construir `clean_text` y al resumen.
 
-### 2. Limpieza del texto
-`clean_text`: minúsculas, URLs fuera, emojis y ruido fuera, espacios normalizados. **No se elimina el carácter `#`**, para poder localizar hashtags en el texto ya normalizado.
 
-### 3. Extracción de hashtags
-Expresión regular (`#` + palabra) sobre el texto limpio; una lista de hashtags por fila.
+## Metodología (resumen)
 
-### 4. Agregación y métricas
-Las listas se *explotan* en filas; se calculan frecuencias globales, por usuario (`user_name`) y por día (`date`).
+Todo pasa por `DataExtractor` (`extractor.py`):
 
-### 5. Visualización
-**Wordcloud** a partir de las frecuencias globales (`wordcloud` + matplotlib).
+| Paso | Qué hace |
+|------|----------|
+| **Limpieza** | `clean_text` + eliminación de stopwords **inglés/español** (NLTK); se mantienen tildes y `#`. |
+| **`model_topics()`** | **LDA** (Gensim) sobre `clean_text` → tópicos como listas de palabras más probables (sin etiquetas automáticas). |
+| **`analyze_sentiment()`** | **TextBlob**: polaridad y subjetividad (más fiable en inglés; aproximación en corpus mixto). |
+| **`parse_and_summarize()`** | Resumen **extractivo**: se puntúan oraciones por frecuencia de términos (sin stopwords), se eligen las mejores con un ratio y un **tope de oraciones**. |
+
+En el **dashboard** se añaden **árboles de dependencia** (spaCy) solo como apoyo visual del análisis sintáctico, no como salida del extractor.
+
 
 ## Entorno e instalación
 
-Desde la raíz del proyecto (recomendado: entorno virtual):
+1. **Clona o coloca el proyecto** y entra en la carpeta raíz del repo.
+
+2. **Crea y activa un entorno virtual** (recomendado):
+
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate
+   ```
+
+   En **Windows** (PowerShell o CMD):
+
+   ```text
+   .venv\Scripts\activate
+   ```
+
+3. **Instala dependencias**:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Modelo spaCy** (para los árboles de dependencias del dashboard):
+
+   ```bash
+   python -m spacy download en_core_web_sm
+   ```
+
+5. **RapidAPI (solo si vas a descargar tweets tú mismo):** crea un fichero `.env` en la raíz con `RAPIDAPI_KEY=tu_clave`. Si solo usas un `data/rapidapi_tweets.csv` ya generado, no hace falta.
+
+6. **NLTK:** el proyecto descarga automáticamente lo necesario (`stopwords`, `punkt_tab`, etc.) la primera vez que corre el extractor o el dashboard.
+
+
+## Ejecución
+
+### 1. Actualizar el corpus (`main.py`) — **opcional**
+
+Solo hace falta si quieres **volver a descargar** tweets o aún **no tienes** `data/rapidapi_tweets.csv`. Si el fichero ya está en el repo (entrega, compañero, copia local), puedes **saltarte este paso** e ir directo al dashboard.
+
+Descarga por la API y guarda en `data/rapidapi_tweets.csv` (o valida el CSV con `--use-file` sin gastar cuota):
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-En Windows, activa el entorno con `.venv\Scripts\activate`.
-
-## Ejecución de la CLI
-
-La línea de comandos se define en `cli.py`. Por defecto se usa el loader **csv** y la ruta `data/Bitcoin_tweets_dataset_2.csv`.
-
-```bash
-python main.py
-```
-
-Ayuda y opciones:
-
-```bash
-python main.py -h
+python main.py --loader rapidapi
 ```
 
 | Opción | Descripción |
 |--------|-------------|
-| `--loader {csv,kaggle,json}` | Origen de datos. `json` no está implementado y termina con código de salida 2. |
-| `--csv-path RUTA` | CSV local (solo tiene efecto con `--loader csv`). |
-| `--kaggle-dataset SLUG` | Dataset en Kaggle, p. ej. `kaushiksuresh147/bitcoin-tweets` (con `--loader kaggle`). |
-| `--kaggle-file NOMBRE` | Fichero dentro del dataset (con `--loader kaggle`). |
-| `--export` | Escribe `cleaned_dataset.csv` (dataset limpio) en `--output-dir`. |
-| `--output-dir` | Carpeta para `--export` (por defecto `output`). |
-
-Ejemplos:
+| `--rapidapi-tweet-count N` | Número de tweets (por defecto 300). |
+| `--use-file` | Usa `data/rapidapi_tweets.csv` sin llamar a la API. |
 
 ```bash
-# CSV local explícito
-python main.py --loader csv --csv-path data/Bitcoin_tweets_dataset_2.csv
-
-# Descarga / carga vía Kaggle (requiere credenciales Kaggle configuradas)
-python main.py --loader kaggle
-
-# Dataset y fichero concretos en Kaggle
-python main.py --loader kaggle --kaggle-dataset kaushiksuresh147/bitcoin-tweets --kaggle-file Bitcoin_tweets_dataset_2.csv
-
-# Mismo flujo con datos de Kaggle y exportación
-python main.py --loader kaggle --export
-
-# Exportar en otra carpeta
-python main.py --loader csv --export --output-dir mi_salida
+python main.py --loader rapidapi --use-file
 ```
 
-## Dashboard interactivo
+### 2. Dashboard Streamlit (`dashboard_rapidapi_tweets.py`)
 
-Hay dos apps de Streamlit llamadas `dashboards` (ejecutar desde la raíz del repo):
-
-- **`dashboard_bitstream.py`**: corpus Bitcoin en Kaggle (hashtags + LDA, sentimiento, resumen).
-- **`dashboard_rapidapi_tweets.py`**: mismos paneles con tweets vía RapidAPI o `data/rapidapi_tweets.csv`.
+Con `data/rapidapi_tweets.csv` presente, lanza la app (tópicos LDA, sentimiento, resúmenes, árboles spaCy). El dashboard **solo lee el fichero**, no la API; si cambias datos u opciones, usa **«Limpiar caché»** en la barra lateral.
 
 ```bash
-streamlit run dashboard_bitstream.py
 streamlit run dashboard_rapidapi_tweets.py
 ```
+
+El corpus Bitcoin / Kaggle de la entrega 1 se visualiza con `dashboard_kaggle_tweets.py` (ver [`README_ENTREGA_1.md`](README_ENTREGA_1.md)).
+
+
+## Estructura relevante
+
+| Ruta | Rol |
+|------|-----|
+| `loaders/rapidapi_twitter.py` | Cliente RapidAPI, query por defecto sobre la película MJ, guardado en CSV. |
+| `extractor.py` | `model_topics`, `analyze_sentiment`, `parse_and_summarize`, stopwords bilingües. |
+| `dashboard_rapidapi_tweets.py` | Visualización entrega 2. |
+| `data/rapidapi_tweets.csv` | Corpus cacheado de la API. |
