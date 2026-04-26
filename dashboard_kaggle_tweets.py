@@ -13,18 +13,40 @@ DATASET = "kaushiksuresh147/bitcoin-tweets"
 FILE_PATH = "Bitcoin_tweets_dataset_2.csv"
 
 
-@st.cache_data(show_spinner="Cargando CSV y analizando hashtags…")
-def load_analytics(max_rows: int) -> tuple[dict[str, pd.DataFrame], int]:
-    """
-    max_rows <= 0 significa usar todas las filas (puede ser lento y pesado en memoria).
-    """
+@st.cache_data(show_spinner="Descargando / leyendo CSV…")
+def load_df(max_rows: int) -> tuple[pd.DataFrame, int]:
     loader = KaggleLoader(dataset_name=DATASET, file_path=FILE_PATH)
     df = loader.load()
     total = len(df)
     if max_rows > 0:
         df = df.head(max_rows)
-    extractor = DataExtractor(loader, data=df)
-    return extractor.analytics_hashtags_extended(), total
+    return df.reset_index(drop=True), total
+
+
+@st.cache_data(show_spinner="Analizando hashtags…")
+def cached_hashtag_stats(max_rows: int) -> dict[str, pd.DataFrame]:
+    df, _ = load_df(max_rows)
+    extractor = DataExtractor(
+        KaggleLoader(dataset_name=DATASET, file_path=FILE_PATH), data=df
+    )
+    return extractor.analytics_hashtags_extended()
+
+
+@st.cache_data(show_spinner="LDA, sentimiento y resumen extractivo…")
+def cached_nlp_pipeline(
+    max_rows: int,
+    num_topics: int,
+    lda_passes: int,
+    summary_ratio: float,
+) -> tuple[list[list[str]], pd.DataFrame, str]:
+    df, _ = load_df(max_rows)
+    extractor = DataExtractor(
+        KaggleLoader(dataset_name=DATASET, file_path=FILE_PATH), data=df.copy()
+    )
+    topics = extractor.model_topics(num_topics=num_topics, passes=lda_passes)
+    sentiment_df = extractor.analyze_sentiment(method="textblob")
+    summary = extractor.parse_and_summarize(summary_ratio=summary_ratio)
+    return topics, sentiment_df, summary
 
 
 def build_wordcloud_figure(overall: pd.DataFrame, max_words: int) -> plt.Figure:
@@ -44,13 +66,13 @@ def build_wordcloud_figure(overall: pd.DataFrame, max_words: int) -> plt.Figure:
 
 def main() -> None:
     st.set_page_config(
-        page_title="Hashtags — Bitcoin tweets",
+        page_title="Bitstream — Bitcoin (Kaggle)",
         layout="wide",
         initial_sidebar_state="expanded",
     )
 
-    st.title("Dashboard de hashtags")
-    st.caption("Datos: Kaggle · `kaushiksuresh147/bitcoin-tweets`")
+    st.title("Bitstream")
+    st.caption("Corpus Kaggle · `kaushiksuresh147/bitcoin-tweets` — hashtags y NLP")
 
     with st.sidebar:
         st.header("Opciones")
@@ -68,15 +90,27 @@ def main() -> None:
             "",
             help="Vacío = sin filtro. Ej.: bitcoin",
         ).strip()
+
+        st.subheader("NLP (LDA / sentimiento / resumen)")
+        num_topics = st.slider("Número de tópicos (LDA)", 2, 15, 5)
+        lda_passes = st.slider("Pases LDA (más = más lento)", 1, 20, 5)
+        summary_ratio = st.slider("Ratio resumen extractivo", 0.05, 0.9, 0.3, 0.05)
+
         if st.button("Limpiar caché y recargar"):
             st.cache_data.clear()
             st.rerun()
 
-    stats, total_rows = load_analytics(int(max_rows))
+    max_r = int(max_rows)
+    _, total_rows = load_df(max_r)
+    stats = cached_hashtag_stats(max_r)
+    topics, sentiment_df, summary = cached_nlp_pipeline(
+        max_r, num_topics, lda_passes, summary_ratio
+    )
+
     overall: pd.DataFrame = stats["overall"]
     by_user: pd.DataFrame = stats["by_user"]
     by_date: pd.DataFrame = stats["by_date"]
-    used = int(max_rows) if int(max_rows) > 0 else total_rows
+    used = max_r if max_r > 0 else total_rows
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Filas en el CSV", f"{total_rows:,}")
@@ -84,8 +118,14 @@ def main() -> None:
     c3.metric("Hashtags distintos", f"{len(overall):,}")
     c4.metric("Apariciones (suma freq.)", f"{int(overall['frequency'].sum()):,}")
 
-    tab1, tab2, tab3, tab4 = st.tabs(
-        ["Ranking global", "Por usuario", "Por fecha", "Wordcloud"]
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+        [
+            "Ranking global",
+            "Por usuario",
+            "Por fecha",
+            "Wordcloud",
+            "Tópicos, sentimiento y resumen",
+        ]
     )
 
     top = overall.head(top_n).copy()
@@ -179,6 +219,74 @@ def main() -> None:
             fig_wc = build_wordcloud_figure(overall, wc_words)
             st.pyplot(fig_wc, clear_figure=True)
             plt.close(fig_wc)
+
+    with tab5:
+        st.subheader("Tópicos (model_topics · LDA)")
+        topics_table = pd.DataFrame(
+            {
+                "tópico": [f"#{i}" for i in range(len(topics))],
+                "palabras": [", ".join(words) for words in topics],
+            }
+        )
+        st.dataframe(topics_table, use_container_width=True, hide_index=True)
+        for i, words in enumerate(topics):
+            st.markdown(f"**Tópico {i}:** {', '.join(words)}")
+
+        st.subheader("Sentimiento (analyze_sentiment · TextBlob)")
+        if sentiment_df.empty:
+            st.warning("No hay filas para analizar el sentimiento.")
+        else:
+            desc = sentiment_df[
+                ["sentiment_polarity", "sentiment_subjectivity"]
+            ].describe()
+            st.dataframe(desc, use_container_width=True)
+
+            col_a, col_b = st.columns(2)
+            sample = sentiment_df
+            if len(sentiment_df) > 2000:
+                sample = sentiment_df.sample(2000, random_state=0)
+            with col_a:
+                fig_pol = px.histogram(
+                    sentiment_df,
+                    x="sentiment_polarity",
+                    nbins=40,
+                    labels={"sentiment_polarity": "Polaridad"},
+                    title="Distribución de polaridad",
+                )
+                st.plotly_chart(fig_pol, use_container_width=True)
+            with col_b:
+                fig_sc = px.scatter(
+                    sample,
+                    x="sentiment_polarity",
+                    y="sentiment_subjectivity",
+                    opacity=0.35,
+                    labels={
+                        "sentiment_polarity": "Polaridad",
+                        "sentiment_subjectivity": "Subjetividad",
+                    },
+                    title="Polaridad vs subjetividad (muestra)",
+                )
+                st.plotly_chart(fig_sc, use_container_width=True)
+
+            show_cols = [
+                c
+                for c in (
+                    "text",
+                    "clean_text",
+                    "sentiment_polarity",
+                    "sentiment_subjectivity",
+                )
+                if c in sentiment_df.columns
+            ]
+            st.dataframe(
+                sentiment_df[show_cols].head(500),
+                use_container_width=True,
+                hide_index=True,
+                height=360,
+            )
+
+        st.subheader("Resumen extractivo (parse_and_summarize)")
+        st.markdown(summary if summary else "_Sin texto de resumen._")
 
 
 if __name__ == "__main__":
