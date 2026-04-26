@@ -197,3 +197,55 @@ class DataExtractor:
         plt.tight_layout()
         plt.show()
         plt.close()
+
+    def model_topics(self, num_topics: int = 5, passes: int = 10) -> list:
+        """
+        Aplica el modelo LDA para descubrir tópicos en el corpus.
+        Pasos:
+        1. Asegurarse de que la columna 'clean_text' existe (se debe llamar previamente
+        a clean_text).
+        2. Tokeniza la columna 'clean_text' (división simple en palabras).
+        3. Crea un diccionario y un corpus (bag-of-words) a partir de los tokens.
+        4. Entrena el modelo LDA con los parámetros especificados.
+        5. Extrae y muestra los tópicos en formato lista (cada tópico es una lista de
+        palabras).
+        Devuelve:
+        Lista de tópicos, por ejemplo: [['word1', 'word2', ...], ['word3', ...], ...]
+        """
+        # return topics
+        pass
+
+    def analyze_sentiment(self, method: str = "textblob") -> pd.DataFrame:
+        """
+        Analiza el sentimiento de cada tweet utilizando el método especificado.
+        Parámetros:
+        method: 'textblob' o 'spacy'. Si se elige 'spacy', se usará spacytextblob.
+        Proceso:
+        - Para cada 'clean_text', calcula la polaridad y subjetividad.
+        - Almacena los resultados en las columnas 'sentiment_polarity' y
+        'sentiment_subjectivity'.
+        Devuelve:
+        DataFrame actualizado con las nuevas columnas de sentimiento.
+        """
+        # return self.data
+        pass
+
+    def parse_and_summarize(self, summary_ratio: float = 0.3) -> str:
+        """
+        Realiza un análisis de parsing y genera un resumen extractivo del corpus.
+        Pasos:
+        1. Concatena todos los textos limpios.
+        2. Divide el texto concatenado en oraciones.
+        3. Calcula una puntuación para cada oración basándose en la frecuencia de
+        palabras (excluyendo
+        stopwords).
+        4. Selecciona las oraciones con mayor puntuación según el ratio especificado.
+        5. Devuelve el resumen formado por las oraciones seleccionadas, manteniendo el
+        orden original.
+        Parámetros:
+        summary_ratio: Proporción de oraciones a retener (ej. 0.3 para el 30%).
+        Devuelve:
+        Un string con el resumen generado.
+        """
+        # return summary
+        pass
