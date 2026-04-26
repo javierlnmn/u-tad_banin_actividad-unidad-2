@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import re
+from typing import Literal
 
 import matplotlib.pyplot as plt
 import pandas as pd
+import spacy
 from gensim import corpora
 from gensim.models import LdaModel
 from gensim.utils import simple_preprocess
 from nltk.corpus import stopwords
 from pandas import DataFrame
+from spacytextblob.spacytextblob import SpacyTextBlob  # noqa: F401
 from wordcloud import WordCloud
 
 from loaders.base import DataLoader
@@ -250,7 +253,9 @@ class DataExtractor:
             )
         ]
 
-    def analyze_sentiment(self, method: str = "textblob") -> pd.DataFrame:
+    def analyze_sentiment(
+        self, method: Literal["textblob", "spacy"] = "textblob"
+    ) -> pd.DataFrame:
         """
         Analiza el sentimiento de cada tweet utilizando el método especificado.
         Parámetros:
@@ -262,8 +267,45 @@ class DataExtractor:
         Devuelve:
         DataFrame actualizado con las nuevas columnas de sentimiento.
         """
-        # return self.data
-        pass
+        if self.data is None:
+            self.load_data()
+
+        df = self.data.copy()
+        if "clean_text" not in df.columns:
+            df["clean_text"] = df["text"].apply(self.clean_text)
+
+        if method == "spacy":
+            out = self._analyze_sentiment_spacy(df)
+        elif method == "textblob":
+            out = self._analyze_sentiment_textblob(df)
+        else:
+            raise ValueError(f"Método de sentimiento desconocido: {method!r}")
+
+        self.data = out
+        return out
+
+    def _analyze_sentiment_textblob(self, df: pd.DataFrame) -> pd.DataFrame:
+        raise NotImplementedError(
+            "Sentimiento con TextBlob aún no implementado; usa method='spacy'."
+        )
+
+    def _analyze_sentiment_spacy(self, df: pd.DataFrame) -> pd.DataFrame:
+        nlp = spacy.load("en_core_web_sm")
+        nlp.add_pipe("spacytextblob")
+
+        out = df.copy()
+        out["sentiment_polarity"] = out["clean_text"].apply(
+            lambda t: float("nan") if t == "" else float(nlp(str(t))._.blob.polarity)
+        )
+        out["sentiment_subjectivity"] = out["clean_text"].apply(
+            lambda t: (
+                float("nan") if t == "" else float(nlp(str(t))._.blob.subjectivity)
+            )
+        )
+        out["sentiment_tokens_pos"] = out["clean_text"].apply(
+            lambda t: {} if t == "" else {tok.text: tok.pos_ for tok in nlp(str(t))}
+        )
+        return out
 
     def parse_and_summarize(self, summary_ratio: float = 0.3) -> str:
         """
