@@ -219,7 +219,7 @@ class DataExtractor:
         """
         Analiza el sentimiento de cada tweet utilizando el método especificado.
         Parámetros:
-        method: 'textblob' o 'spacy'. Si se elige 'spacy', se usará spacytextblob.
+        - method: 'textblob' o 'spacy'. Si se elige 'spacy', se usará spacytextblob.
         Proceso:
         - Para cada 'clean_text', calcula la polaridad y subjetividad.
         - Almacena los resultados en las columnas 'sentiment_polarity' y
@@ -237,13 +237,12 @@ class DataExtractor:
         1. Concatena todos los textos limpios.
         2. Divide el texto concatenado en oraciones.
         3. Calcula una puntuación para cada oración basándose en la frecuencia de
-        palabras (excluyendo
-        stopwords).
+        palabras (excluyendo stopwords).
         4. Selecciona las oraciones con mayor puntuación según el ratio especificado.
         5. Devuelve el resumen formado por las oraciones seleccionadas, manteniendo el
         orden original.
         Parámetros:
-        summary_ratio: Proporción de oraciones a retener (ej. 0.3 para el 30%).
+        - summary_ratio: Proporción de oraciones a retener (ej. 0.3 para el 30%).
         Devuelve:
         Un string con el resumen generado.
         """

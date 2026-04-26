@@ -22,8 +22,6 @@ MAX_REQUEST_ROUNDS = 50
 
 
 class RapidAPITwitterLoader(DataLoader):
-    """twitter-api45 GET /search.php → { "timeline": [...], "next_cursor": "..." }."""
-
     def __init__(
         self,
         timeout: int = 20,
@@ -144,7 +142,7 @@ class RapidAPITwitterLoader(DataLoader):
 
     def _normalize_tweet(self, tweet: dict[str, Any]) -> dict[str, Any]:
         return {
-            "user_name": tweet.get("screen_name") or "",
+            "username": tweet.get("screen_name") or "",
             "text": tweet.get("text") or "",
             "date": tweet.get("created_at"),
         }
