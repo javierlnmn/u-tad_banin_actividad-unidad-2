@@ -97,8 +97,12 @@ python main.py --loader csv --export --output-dir mi_salida
 
 ## Dashboard interactivo
 
-App **Streamlit** (`dashboard.py`) para ver el mismo análisis de forma interactiva: métricas, gráficos (Plotly), tablas y wordcloud. Con el entorno activado y las dependencias instaladas:
+Hay dos apps de Streamlit llamadas `dashboards` (ejecutar desde la raíz del repo):
+
+- **`dashboard_bitstream.py`**: corpus Bitcoin en Kaggle (hashtags + LDA, sentimiento, resumen).
+- **`dashboard_rapidapi_tweets.py`**: mismos paneles con tweets vía RapidAPI o `data/rapidapi_tweets.csv`.
 
 ```bash
-streamlit run dashboard.py
+streamlit run dashboard_bitstream.py
+streamlit run dashboard_rapidapi_tweets.py
 ```
