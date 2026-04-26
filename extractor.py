@@ -4,6 +4,10 @@ import re
 
 import matplotlib.pyplot as plt
 import pandas as pd
+from gensim import corpora
+from gensim.models import LdaModel
+from gensim.utils import simple_preprocess
+from nltk.corpus import stopwords
 from pandas import DataFrame
 from wordcloud import WordCloud
 
@@ -198,7 +202,9 @@ class DataExtractor:
         plt.show()
         plt.close()
 
-    def model_topics(self, num_topics: int = 5, passes: int = 10) -> list:
+    def model_topics(
+        self, num_topics: int = 5, passes: int = 10, show_visualization: bool = True
+    ) -> list[list[str]]:
         """
         Aplica el modelo LDA para descubrir tópicos en el corpus.
         Pasos:
@@ -212,8 +218,48 @@ class DataExtractor:
         Devuelve:
         Lista de tópicos, por ejemplo: [['word1', 'word2', ...], ['word3', ...], ...]
         """
-        # return topics
-        pass
+        if self.data is None:
+            self.load_data()
+
+        df = self.data.copy()
+        df["clean_text"] = df["text"].apply(self.clean_text)
+
+        stopwords_list = set(stopwords.words("english"))
+        df["clean_text"] = df["clean_text"].apply(
+            lambda x: " ".join(
+                [word for word in x.split() if word not in stopwords_list]
+            )
+        )
+
+        df["tokens"] = df["clean_text"].apply(simple_preprocess, deacc=True)
+
+        dictionary = corpora.Dictionary(df["tokens"])
+        corpus = [dictionary.doc2bow(text) for text in df["tokens"]]
+
+        lda_model = LdaModel(
+            corpus=corpus,
+            id2word=dictionary,
+            num_topics=num_topics,
+            passes=passes,
+        )
+
+        if show_visualization:
+            try:
+                import pyLDAvis
+                import pyLDAvis.gensim_models as gensimvis
+            except ImportError as exc:
+                raise ImportError(
+                    "pyLDAvis no esta instalado. Instala con: pip install pyLDAvis"
+                ) from exc
+
+            pyLDAvis.enable_notebook()
+            visualization = gensimvis.prepare(lda_model, corpus, dictionary)
+            pyLDAvis.display(visualization)
+
+        topics_raw = lda_model.show_topics(
+            num_topics=num_topics, num_words=10, formatted=False
+        )
+        return [[word for word, _ in topic_words] for _, topic_words in topics_raw]
 
     def analyze_sentiment(self, method: str = "textblob") -> pd.DataFrame:
         """
