@@ -1,0 +1,20 @@
+Eres un analista de redes sociales. A partir de un corpus de tweets se ha construido un grafo dirigido donde cada arista indica que un usuario mencionó (@) a otro.
+
+Métricas globales:
+- Nodos: {nodes}
+- Aristas (menciones): {edges}
+- Densidad de la red: {density:.4f}
+- Comunidades: {communities_text}
+
+Usuarios más centrales (top 3 por PageRank):
+{top_centrality_lines}
+
+Hashtag más frecuente en el corpus: #{top_hashtag} ({top_hashtag_freq} apariciones)
+
+Con estos datos, explica de forma interpretativa:
+1. Qué usuarios parecen actuar como hubs o articuladores de la conversación.
+2. Posibles razones de la popularidad del hashtag principal en relación con las menciones.
+3. Hipótesis sobre subcomunidades o grupos que dialogan entre sí.
+4. Limitaciones del análisis (tamaño de muestra, sesgo de la API, menciones no capturadas).
+
+Responde en español, de forma clara y estructurada, sin inventar métricas numéricas adicionales.

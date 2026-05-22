@@ -2,24 +2,31 @@ from __future__ import annotations
 
 import math
 import re
-from typing import Literal
+from collections import Counter
+from typing import Any, Literal
 
 import matplotlib.pyplot as plt
+import networkx as nx
 import nltk
 import pandas as pd
 import spacy
+import torch
 from gensim import corpora
 from gensim.models import LdaModel
 from gensim.utils import simple_preprocess
+from networkx.algorithms import community as nx_community
 from nltk.corpus import stopwords
 from nltk.tokenize import sent_tokenize, word_tokenize
 from pandas import DataFrame
 from textblob import TextBlob
 from wordcloud import WordCloud
 
+from llm.network_prompt import build_network_prompt
 from loaders.base import DataLoader
 
 DEFAULT_WORDCLOUD_MAX_WORDS = 100
+DEFAULT_LLM_MODEL = "google/gemma-4-E2B-it"
+MENTION_RE = re.compile(r"@([A-Za-z0-9_]+)")
 
 nltk.download("stopwords")
 nltk.download("punkt_tab")
@@ -43,6 +50,10 @@ class DataExtractor:
         self.loader: DataLoader = loader
         self.chunksize = chunksize
         self.data: DataFrame | None = data if data is not None else loader.load()
+        self._llm_tokenizer = None
+        self._llm_model = None
+        self._chat_history: list[dict[str, str]] = []
+        self._last_network_metrics: dict[str, Any] | None = None
 
     def load_data(self):
         """
@@ -391,3 +402,305 @@ class DataExtractor:
 
         summary = " ".join(summary_sentences)
         return summary
+
+    @staticmethod
+    def _extract_mentions(text: object) -> list[str]:
+        if text is None or (isinstance(text, float) and pd.isna(text)):
+            return []
+        return [m.lower() for m in MENTION_RE.findall(str(text))]
+
+    def build_interaction_graph(self) -> nx.DiGraph:
+        """
+        Construye un grafo de interacciones a partir de los datos.
+        Se asume que self.data tiene las columnas 'user_name' y 'text' para extraer menciones.
+        """
+        if self.data is None:
+            self.load_data()
+
+        graph = nx.DiGraph()
+
+        for _, row in self.data.iterrows():
+            author = str(row["username"]).strip().lower()
+            if not author:
+                continue
+            graph.add_node(author)
+            for mention in self._extract_mentions(row["text"]):
+                if not mention or mention == author:
+                    continue
+                graph.add_node(mention)
+                if graph.has_edge(author, mention):
+                    graph[author][mention]["weight"] += 1
+                else:
+                    graph.add_edge(author, mention, weight=1)
+
+        return graph
+
+    def _compute_network_metrics(self, graph: nx.DiGraph) -> dict[str, Any]:
+        """Calcula métricas y comunidades (Louvain) sin imprimir ni graficar."""
+        nodes = graph.number_of_nodes()
+        edges = graph.number_of_edges()
+
+        if nodes == 0:
+            return {
+                "nodes": 0,
+                "edges": 0,
+                "avg_in_degree": 0.0,
+                "avg_out_degree": 0.0,
+                "density": 0.0,
+                "top_centrality": [],
+                "communities": [],
+                "pagerank": {},
+                "in_degree": {},
+                "out_degree": {},
+            }
+
+        in_deg = dict(graph.in_degree())
+        out_deg = dict(graph.out_degree())
+        avg_in = sum(in_deg.values()) / nodes
+        avg_out = sum(out_deg.values()) / nodes
+
+        try:
+            density = float(nx.density(graph))
+        except nx.NetworkXError:
+            density = 0.0
+
+        pagerank = nx.pagerank(graph, weight="weight")
+        top_centrality = sorted(
+            pagerank.items(), key=lambda item: item[1], reverse=True
+        )[:3]
+
+        undirected = graph.to_undirected()
+        if edges > 0:
+            communities = list(
+                nx_community.louvain_communities(undirected, weight="weight", seed=42)
+            )
+        else:
+            communities = [{n} for n in graph.nodes()]
+
+        return {
+            "nodes": nodes,
+            "edges": edges,
+            "avg_in_degree": avg_in,
+            "avg_out_degree": avg_out,
+            "density": density,
+            "top_centrality": top_centrality,
+            "communities": communities,
+            "pagerank": pagerank,
+            "in_degree": in_deg,
+            "out_degree": out_deg,
+        }
+
+    def analyze_network(
+        self,
+        graph: nx.DiGraph,
+        *,
+        show_plot: bool = True,
+        figsize: tuple[float, float] = (10, 8),
+    ) -> dict[str, Any]:
+        """
+        Calcula métricas de red y detecta comunidades utilizando el algoritmo de Louvain.
+        Imprime estadísticas y genera una visualización básica.
+        """
+        metrics = self._compute_network_metrics(graph)
+        self._last_network_metrics = metrics
+
+        print("\n=== Análisis de red (NetworkX) ===")
+        print(f"Nodos: {metrics['nodes']} | Aristas: {metrics['edges']}")
+        print(
+            f"Grado medio (entrada/salida): "
+            f"{metrics['avg_in_degree']:.2f} / {metrics['avg_out_degree']:.2f}"
+        )
+        print(f"Densidad: {metrics['density']:.4f}")
+
+        if metrics["top_centrality"]:
+            print("\nTop 3 nodos por centralidad (PageRank):")
+            for rank, (node, score) in enumerate(metrics["top_centrality"], start=1):
+                print(f"  {rank}. @{node} — {score:.4f}")
+
+        print(f"\nComunidades detectadas (Louvain): {len(metrics['communities'])}")
+        for idx, comm in enumerate(metrics["communities"], start=1):
+            members = ", ".join(f"@{u}" for u in sorted(comm))
+            print(f"  Comunidad {idx} ({len(comm)} nodos): {members}")
+
+        if show_plot and metrics["nodes"] > 0:
+            plt.figure(figsize=figsize)
+            layout = nx.spring_layout(
+                graph, seed=42, k=0.9 / math.sqrt(metrics["nodes"])
+            )
+            edge_weights = [graph[u][v].get("weight", 1) for u, v in graph.edges()]
+            nx.draw_networkx_nodes(graph, layout, node_size=400, alpha=0.85)
+            nx.draw_networkx_labels(graph, layout, font_size=8)
+            nx.draw_networkx_edges(
+                graph,
+                layout,
+                width=[0.5 + 0.3 * w for w in edge_weights],
+                alpha=0.6,
+                arrows=True,
+                arrowsize=12,
+            )
+            plt.title("Grafo de interacciones por menciones (@usuario)")
+            plt.axis("off")
+            plt.tight_layout()
+            plt.show()
+            plt.close()
+
+        return metrics
+
+    def generate_prompt_from_network(self, graph: nx.DiGraph) -> str:
+        """
+        Genera un prompt para el LLM utilizando insights del análisis de la red.
+        Se extraen métricas como el top 3 de nodos por centralidad y el hashtag más frecuente.
+        La función construye un prompt que pide explicar posibles razones de las tendencias observadas
+        """
+        metrics = self._last_network_metrics
+        if metrics is None:
+            metrics = self._compute_network_metrics(graph)
+            self._last_network_metrics = metrics
+
+        if self.data is None:
+            self.load_data()
+        all_hashtags: list[str] = []
+        for text in self.data["text"]:
+            all_hashtags.extend(self.extract_hashtags(self.clean_text(text)))
+        hashtag_counts = Counter(all_hashtags)
+        if hashtag_counts:
+            top_hashtag, top_hashtag_freq = hashtag_counts.most_common(1)[0]
+        else:
+            top_hashtag, top_hashtag_freq = "ninguno detectado", 0
+
+        return build_network_prompt(
+            nodes=metrics["nodes"],
+            edges=metrics["edges"],
+            density=metrics["density"],
+            communities_count=len(metrics["communities"]),
+            top_centrality=metrics["top_centrality"],
+            top_hashtag=top_hashtag,
+            top_hashtag_freq=top_hashtag_freq,
+        )
+
+    def _load_local_llm(self, model_id: str = DEFAULT_LLM_MODEL) -> None:
+        """Carga perezosa del tokenizer y del modelo causal en local."""
+        if self._llm_model is not None and self._llm_tokenizer is not None:
+            return
+
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        dtype = torch.bfloat16 if device == "cuda" else torch.float32
+
+        print(f"Cargando modelo local {model_id!r} en {device}…")
+        tokenizer = AutoTokenizer.from_pretrained(model_id)
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+
+        model = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            torch_dtype=dtype,
+            device_map="auto" if device == "cuda" else None,
+        )
+        if device == "cpu":
+            model = model.to(device)
+
+        model.eval()
+        self._llm_tokenizer = tokenizer
+        self._llm_model = model
+
+    def _generate_llm_reply(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        max_new_tokens: int = 512,
+        model_id: str = DEFAULT_LLM_MODEL,
+    ) -> str:
+
+        self._load_local_llm(model_id)
+        assert self._llm_tokenizer is not None
+        assert self._llm_model is not None
+
+        tokenizer = self._llm_tokenizer
+        model = self._llm_model
+
+        if hasattr(tokenizer, "apply_chat_template"):
+            input_ids = tokenizer.apply_chat_template(
+                messages,
+                add_generation_prompt=True,
+                return_tensors="pt",
+            )
+        else:
+            text = "\n".join(f"{m['role']}: {m['content']}" for m in messages)
+            input_ids = tokenizer(text, return_tensors="pt").input_ids
+
+        device = next(model.parameters()).device
+        input_ids = input_ids.to(device)
+        input_len = input_ids.shape[-1]
+
+        with torch.no_grad():
+            output_ids = model.generate(
+                input_ids,
+                max_new_tokens=max_new_tokens,
+                do_sample=True,
+                temperature=0.7,
+                top_p=0.9,
+                pad_token_id=tokenizer.pad_token_id,
+            )
+
+        new_tokens = output_ids[0, input_len:]
+        return tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+
+    def chat_local_llm(
+        self,
+        prompt: str | None = None,
+        *,
+        model_id: str = DEFAULT_LLM_MODEL,
+        max_new_tokens: int = 512,
+    ) -> list[dict[str, str]]:
+        """
+        Levanta un modelo LLM preentrenado (gemma-4-e2b-it) y permite la interacción en modo chat.
+        Si se proporciona un prompt (por ejemplo, generado a partir de la red), se utiliza como
+        mensaje inicial para generar una respuesta automática, que se incorpora al contexto de la
+        conversación.
+        """
+        self._chat_history = []
+
+        if prompt:
+            print("\n--- Prompt inicial (insights de la red) ---\n")
+            print(prompt)
+            self._chat_history.append({"role": "user", "content": prompt})
+            reply = self._generate_llm_reply(
+                self._chat_history,
+                max_new_tokens=max_new_tokens,
+                model_id=model_id,
+            )
+            print("\n--- Respuesta del modelo ---\n")
+            print(reply)
+            self._chat_history.append({"role": "assistant", "content": reply})
+
+        print(
+            "\nModo chat (escribe 'salir' para terminar). "
+            "El contexto incluye el análisis previo si se proporcionó un prompt inicial."
+        )
+
+        while True:
+            try:
+                user_text = input("\nTú: ").strip()
+            except KeyboardInterrupt:
+                print("\nFin del chat.")
+                break
+
+            if user_text.lower() in {"salir", "exit", "quit"}:
+                print("Fin del chat.")
+                break
+            if not user_text:
+                continue
+
+            self._chat_history.append({"role": "user", "content": user_text})
+            reply = self._generate_llm_reply(
+                self._chat_history,
+                max_new_tokens=max_new_tokens,
+                model_id=model_id,
+            )
+            print(f"\nAsistente: {reply}")
+            self._chat_history.append({"role": "assistant", "content": reply})
+
+        return self._chat_history

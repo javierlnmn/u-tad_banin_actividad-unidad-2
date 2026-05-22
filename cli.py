@@ -55,6 +55,29 @@ def build_argument_parser() -> argparse.ArgumentParser:
             "de llamar a la API."
         ),
     )
+    parser.add_argument(
+        "--network",
+        action="store_true",
+        help="Construye el grafo de menciones y calcula métricas (NetworkX).",
+    )
+    parser.add_argument(
+        "--llm",
+        action="store_true",
+        help=(
+            "Genera un prompt desde la red y abre chat con el LLM local "
+            "(requiere --network o lo ejecuta antes)."
+        ),
+    )
+    parser.add_argument(
+        "--llm-model",
+        default="google/gemma-4-E2B-it",
+        help="Identificador Hugging Face del modelo causal (por defecto Gemma 4 E2B-it).",
+    )
+    parser.add_argument(
+        "--no-network-plot",
+        action="store_true",
+        help="No mostrar la figura del grafo al analizar la red.",
+    )
     return parser
 
 

@@ -49,22 +49,38 @@ if __name__ == "__main__":
     if Loaders(ns.loader) == Loaders.RAPIDAPI:
         extractor = DataExtractor(loader=loader)
 
-        print("\n=== Tópicos (model_topics / LDA) ===")
-        topics = extractor.model_topics()
-        for i, words in enumerate(topics):
-            print(f"  Tópico {i}: {', '.join(words)}")
+        if ns.network or ns.llm:
+            graph = extractor.build_interaction_graph()
+            extractor.analyze_network(graph, show_plot=not ns.no_network_plot)
+            network_prompt = extractor.generate_prompt_from_network(graph)
+            print("\n=== Prompt para LLM (generate_prompt_from_network) ===\n")
+            print(network_prompt)
+            if ns.llm:
+                extractor.chat_local_llm(
+                    prompt=network_prompt,
+                    model_id=ns.llm_model,
+                )
+        else:
+            print("\n=== Tópicos (model_topics / LDA) ===")
+            topics = extractor.model_topics()
+            for i, words in enumerate(topics):
+                print(f"  Tópico {i}: {', '.join(words)}")
 
-        print("\n=== Sentimiento (analyze_sentiment, TextBlob) ===")
-        sentiment_df = extractor.analyze_sentiment(method="textblob")
-        print(sentiment_df[["sentiment_polarity", "sentiment_subjectivity"]].describe())
-        print("\nMuestra (polaridad / subjetividad):")
-        print(
-            sentiment_df[["sentiment_polarity", "sentiment_subjectivity"]]
-            .head(8)
-            .to_string()
-        )
+            print("\n=== Sentimiento (analyze_sentiment, TextBlob) ===")
+            sentiment_df = extractor.analyze_sentiment(method="textblob")
+            print(
+                sentiment_df[
+                    ["sentiment_polarity", "sentiment_subjectivity"]
+                ].describe()
+            )
+            print("\nMuestra (polaridad / subjetividad):")
+            print(
+                sentiment_df[["sentiment_polarity", "sentiment_subjectivity"]]
+                .head(8)
+                .to_string()
+            )
 
-        print("\n=== Resumen extractivo (parse_and_summarize) ===")
-        summary = extractor.parse_and_summarize(summary_ratio=0.3)
-        print(summary)
-        print()
+            print("\n=== Resumen extractivo (parse_and_summarize) ===")
+            summary = extractor.parse_and_summarize(summary_ratio=0.3)
+            print(summary)
+            print()
